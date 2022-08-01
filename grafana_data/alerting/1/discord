@@ -1,0 +1,20 @@
+{{ define "discord" }}
+  <@!176355202687959051>
+  [{{.Status}}]
+  ---
+  Value: {{ or .ValueString "[no value]" }}
+  ---
+  {{ if gt (len .Labels) 1 }}
+    Labels:
+    {{ range .Labels.SortedPairs }}
+      {{ .Name }}: {{ .Value }}
+    {{ end }}
+  {{ end }}
+  ---
+  {{ if gt (len .Annotations) 0 }}
+    Annotations:
+    {{ range .Annotations.SortedPairs }}
+      {{ .Name }}: {{ .Value }}
+    {{ end }}
+  {{ end }}
+{{ end }}

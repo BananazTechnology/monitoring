@@ -1,0 +1,187 @@
+version: "3.7"
+
+networks:
+  monitor-net:
+    driver: bridge
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.35.0
+    container_name: prometheus
+    user: root
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - ./prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: always
+    expose:
+      - 9090
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  # alertmanager:
+  #   image: prom/alertmanager:v0.24.0
+  #   container_name: alertmanager
+  #   user: root
+  #   volumes:
+  #     - ./alertmanager:/etc/alertmanager
+  #   command:
+  #     - '--config.file=/etc/alertmanager/config.yml'
+  #     - '--storage.path=/alertmanager'
+  #   restart: always
+  #   expose:
+  #     - 9093
+  #   networks:
+  #     - monitor-net
+  #   labels:
+  #     org.label-schema.group: "monitoring"
+
+  nodeexporter:
+    image: prom/node-exporter:v1.3.1
+    container_name: nodeexporter
+    user: root
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: always
+    expose:
+      - 9100
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.44.0
+    container_name: cadvisor
+    privileged: true
+    user: root
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/snap/docker/common/var-lib-docker/:/var/lib/docker:ro
+      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+    restart: always
+    expose:
+      - 8080
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  grafana:
+    image: grafana/grafana:8.4.5
+    container_name: grafana
+    user: root
+    depends_on:
+      - prometheus
+      - loki
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=Bananaz100%
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DATE_FORMATS_DEFAULT_TIMEZONE=browser
+      - GF_DATE_FORMATS_INTERVAL_HOUR=MM/DD hh:mm a
+      - GF_DATE_FORMATS_INTERVAL_MINUTE=hh:mm a
+      - GF_DATE_FORMATS_INTERVAL_SECOND=hh:mm:ss a
+      - GF_DATE_FORMATS_FULL_DATE=MMM-DD-YYYY @ hh:mm:ss a
+      - GF_SERVER_ROOT_URL=https://monitoring.aaronrenner.com
+    restart: always
+    expose:
+      - 3000
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  pushgateway:
+    image: prom/pushgateway:v1.4.2
+    container_name: pushgateway
+    restart: always
+    user: root
+    expose:
+      - 9091
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  #
+  # Virtual Nginx for routing ports to domains and securing with basic-auth
+  #
+  caddy:
+    image: caddy:2.3.0
+    container_name: caddy
+    user: root
+    ports:
+      - "8990:3000" # Grafana
+      - "8991:9090" # Prometheus
+      # - "8992:9093" Alertmanager
+      - "8993:9091" # Pushgateway
+    volumes:
+      - ./caddy:/etc/caddy
+    environment:
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=Bananaz100%
+      - ADMIN_PASSWORD_HASH=JDJhJDE0JDdSTFdmc1dZVnhxMnJxWWdPSHFFRXU3Yi9uSnFRYVhrSU9XMU9lY05aWTNNSnpyS1lNVXRD
+    restart: always
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  #
+  # Logging gatering and enablement with Grafana
+  #
+  loki:
+    container_name: loki
+    image: grafana/loki:2.5.0
+    restart: always
+    user: root
+    depends_on:
+      - promtail
+    expose:
+      - 3100
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - ./loki_data:/data/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:2.3.0
+    restart: always
+    user: root
+    volumes:
+      - /var/snap/docker/common/var-lib-docker/containers:/var/lib/docker/containers:ro
+      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
