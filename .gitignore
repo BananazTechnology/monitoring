@@ -4,3 +4,4 @@
 .idea/
 loki_data/
 prometheus_data/
+grafana_data/grafana.db

@@ -99,14 +99,14 @@ services:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=Bananaz100%
+      - GF_SECURITY_ADMIN_PASSWORD=password
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_DATE_FORMATS_DEFAULT_TIMEZONE=browser
       - GF_DATE_FORMATS_INTERVAL_HOUR=MM/DD hh:mm a
       - GF_DATE_FORMATS_INTERVAL_MINUTE=hh:mm a
       - GF_DATE_FORMATS_INTERVAL_SECOND=hh:mm:ss a
       - GF_DATE_FORMATS_FULL_DATE=MMM-DD-YYYY @ hh:mm:ss a
-      - GF_SERVER_ROOT_URL=https://monitoring.aaronrenner.com
+      - GF_SERVER_ROOT_URL=https://monitoring.example.com
     restart: always
     expose:
       - 3000
@@ -143,8 +143,8 @@ services:
       - ./caddy:/etc/caddy
     environment:
       - ADMIN_USER=admin
-      - ADMIN_PASSWORD=Bananaz100%
-      - ADMIN_PASSWORD_HASH=JDJhJDE0JDdSTFdmc1dZVnhxMnJxWWdPSHFFRXU3Yi9uSnFRYVhrSU9XMU9lY05aWTNNSnpyS1lNVXRD
+      - ADMIN_PASSWORD=password
+      - ADMIN_PASSWORD_HASH=JDJhJDE0JEcvMUwxZ0NLd0pJOGhkQWNPMi5rdGVFUWlQcHBBQ3VBcDE5WWxZUllETlZtckI4eThUNHFT
     restart: always
     networks:
       - monitor-net
@@ -178,7 +178,8 @@ services:
     restart: always
     user: root
     volumes:
-      - /var/snap/docker/common/var-lib-docker/containers:/var/lib/docker/containers:ro
+      # - /var/snap/docker/common/var-lib-docker/containers:/var/lib/docker/containers:ro - For installations where docker was installed through Ubuntu Snap
+      # - /var/lib/docker/containers:/var/lib/docker/containers:ro - For installations where docker installed through apt-get
       - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml
     command: -config.file=/etc/promtail/promtail-config.yaml
     networks:
